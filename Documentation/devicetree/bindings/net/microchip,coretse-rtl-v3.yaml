@@ -65,6 +65,12 @@ properties:
       and "phy-handle" should point to an external PHY if exists.
     maxItems: 1
 
+  microchip,core1588-ptp-handle:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      Phandle to indicate the microchip core1588 PTP device node to
+      read PTP clock index(/dev/ptp0 etc). This property is for CoreTSE.
+
 required:
   - compatible
   - interrupts
