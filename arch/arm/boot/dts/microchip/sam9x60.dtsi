@@ -186,6 +186,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 13>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -395,6 +396,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 32>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -444,6 +446,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 33>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -601,6 +604,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 9>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -650,6 +654,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 10>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -699,6 +704,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 11>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -748,6 +754,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 5>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -816,6 +823,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 6>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -884,6 +892,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 7>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -952,6 +961,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 8>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -1075,6 +1085,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 15>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -1124,6 +1135,7 @@
 					dma-names = "tx", "rx";
 					clocks = <&pmc PMC_TYPE_PERIPHERAL 16>;
 					clock-names = "usart";
+					atmel,usart-mode = <AT91_USART_MODE_SERIAL>;
 					atmel,use-dma-rx;
 					atmel,use-dma-tx;
 					atmel,fifo-size = <16>;
@@ -1323,7 +1335,7 @@
 				compatible = "microchip,sam9x60-rtt", "atmel,at91sam9260-rtt";
 				reg = <0xfffffe20 0x20>;
 				interrupts = <1 IRQ_TYPE_LEVEL_HIGH 7>;
-				clocks = <&clk32k 0>;
+				clocks = <&clk32k 1>;
 			};
 
 			pit: timer@fffffe40 {
@@ -1349,7 +1361,7 @@
 				compatible = "microchip,sam9x60-rtc", "atmel,at91sam9x5-rtc";
 				reg = <0xfffffea8 0x100>;
 				interrupts = <1 IRQ_TYPE_LEVEL_HIGH 7>;
-				clocks = <&clk32k 0>;
+				clocks = <&clk32k 1>;
 			};
 
 			watchdog: watchdog@ffffff80 {
