@@ -19,6 +19,10 @@ description: |
 maintainers:
   - Praveen Kumar Vattipalli <praveen.kumar@micorchip.com>
 
+
+allOf:
+  - $ref: /schemas/net/ethernet-controller.yaml#
+
 properties:
   compatible:
     enum:
@@ -71,6 +75,18 @@ properties:
       Phandle to indicate the microchip core1588 PTP device node to
       read PTP clock index(/dev/ptp0 etc). This property is for CoreTSE.
 
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+patternProperties:
+  "^ethernet-phy@[0-9a-f]$":
+    type: object
+    $ref: ethernet-phy.yaml#
+    unevaluatedProperties: false
+
 required:
   - compatible
   - interrupts
@@ -81,23 +97,20 @@ required:
   - clock-names
   - pcdma-connected
 
-additionalProperties: false
-
-allOf:
-  - $ref: /schemas/net/ethernet-controller.yaml#
+unevaluatedProperties: false
 
 examples:
   - |
     ethernet@40001000 {
-    compatible = "microchip,coretse-rtl-v3";
-    reg = <0x40001000 0x1000>;
-    interrupts = <128>, <130>;
-    interrupt-parent = <&plic>;
-    pcdma-connected = <&pcdma>;
-    interrupt-names = "mm2s_pcdma", "s2mm_pcdma";
-    clock-names = "pclk", "pcdma";
-    clocks = <&clkcfg 30>, <&clkcfg 27>;
-    status = "okay";
-    phy-mode = "sgmii";
-    pcs-handle = <&phy2>;
+      compatible = "microchip,coretse-rtl-v3";
+      reg = <0x40001000 0x1000>;
+      interrupts = <128>, <130>;
+      interrupt-parent = <&plic>;
+      pcdma-connected = <&pcdma>;
+      interrupt-names = "mm2s_pcdma", "s2mm_pcdma";
+      clock-names = "pclk", "pcdma";
+      clocks = <&clkcfg 30>, <&clkcfg 27>;
+      status = "okay";
+      phy-mode = "sgmii";
+      pcs-handle = <&phy2>;
     };
