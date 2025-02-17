@@ -421,6 +421,7 @@ static const struct i2c_algorithm mchp_corei2c_algo = {
 
 static int mchp_corei2c_probe(struct platform_device *pdev)
 {
+	dev_info(&pdev->dev, "Wiadomosc cwiczebna\n");
 	struct mchp_corei2c_dev *idev;
 	struct resource *res;
 	int irq, ret;
