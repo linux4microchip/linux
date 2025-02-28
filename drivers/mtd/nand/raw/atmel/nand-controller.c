@@ -1240,7 +1240,7 @@ static int atmel_smc_nand_prepare_smcconf(struct atmel_nand *nand,
 					const struct nand_interface_config *conf,
 					struct atmel_smc_cs_conf *smcconf)
 {
-	u32 ncycles, totalcycles, timeps, mckperiodps;
+	u32 ncycles, totalcycles, timeps, mckperiodps, pulse;
 	struct atmel_nand_controller *nc;
 	int ret;
 
@@ -1370,7 +1370,17 @@ static int atmel_smc_nand_prepare_smcconf(struct atmel_nand *nand,
 	 *
 	 * NRD_PULSE = tRP
 	 */
-	ncycles = DIV_ROUND_UP(conf->timings.sdr.tRP_min, mckperiodps);
+	pulse = max(conf->timings.sdr.tRP_min, conf->timings.sdr.tREA_max);
+
+	/*
+	 * Extend the NRD_PULSE for sama7d65. The data setup time before
+	 * NRD high pulse needs to be covered with 5 nsecs for sama7d65
+	 */
+	if ((of_machine_is_compatible("microchip,sama7d65") &&
+	     conf->timings.sdr.tRC_min <= 30000))
+		pulse += mckperiodps;
+
+	ncycles = DIV_ROUND_UP(pulse, mckperiodps);
 	totalcycles += ncycles;
 	ret = atmel_smc_cs_conf_set_pulse(smcconf, ATMEL_SMC_NRD_SHIFT,
 					  ncycles);

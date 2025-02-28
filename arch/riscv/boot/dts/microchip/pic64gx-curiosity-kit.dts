@@ -99,6 +99,14 @@
 	status = "okay";
 };
 
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
 &mmc {
 	bus-width = <4>;
 	disable-wp;

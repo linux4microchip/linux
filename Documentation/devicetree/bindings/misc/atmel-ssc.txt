@@ -1,7 +1,8 @@
 * Atmel SSC driver.
 
 Required properties:
-- compatible: "atmel,at91rm9200-ssc" or "atmel,at91sam9g45-ssc"
+- compatible: "atmel,at91rm9200-ssc" or "atmel,at91sam9g45-ssc" or
+	"microchip,sama7d65-ssc"
 	- atmel,at91rm9200-ssc: support pdc transfer
 	- atmel,at91sam9g45-ssc: support dma transfer
 - reg: Should contain SSC registers location and length

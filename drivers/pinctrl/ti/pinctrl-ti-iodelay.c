@@ -835,6 +835,15 @@ static int ti_iodelay_probe(struct platform_device *pdev)
 
 	if (!np) {
 		dev_err(dev, "No OF node\n");
+		goto exit_out;
+	}
+
+	match = of_match_device(ti_iodelay_of_match, dev);
+	if (!match) {
+		ret = -EINVAL;
+		dev_err(dev, "No DATA match\n");
+		goto exit_out;
+	}
 
 		return -EINVAL;
 	}

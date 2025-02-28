@@ -12,6 +12,7 @@
 
 /dts-v1/;
 #include "dt-bindings/clock/microchip,mpfs-clock.h"
+#include <dt-bindings/media/microchip-common.h>
 
 / {
 	#address-cells = <2>;
@@ -201,6 +202,18 @@
 	refclk: mssrefclk {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
+	};
+
+	axiclk: axi-aclk0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <125000000>;
+	};
+
+	videoclk: video-aclk0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <125000000>;
 	};
 
 	syscontroller: syscontroller {
@@ -619,5 +632,200 @@
 			clocks = <&refclk>;
 			#clock-cells = <1>;
 		};
+
+		bus1: bus@40000000 {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges = <0x0 0x40000000 0x0 0x40000000 0x0 0x20000000>, /* FIC3-FAB */
+				 <0x0 0x60000000 0x0 0x60000000 0x0 0x20000000>, /* FIC0, LO */
+				 <0x0 0xe0000000 0x0 0xe0000000 0x0 0x20000000>, /* FIC1, LO */
+				 <0x20 0x0 0x20 0x0 0x10 0x0>, /* FIC0,HI */
+				 <0x30 0x0 0x30 0x0 0x10 0x0>; /* FIC1,HI */
+
+			dma-ranges = <0x14 0x0 0x0 0x80000000 0x0 0x40000000>;
+
+			/* Camera YUV422 pipeline */
+			mchp_vdma_cam: video-pipeline@60000000 {
+				compatible = "microchip,pic64gx-video-dma",
+						"microchip,video-dma-rtl-v0";
+				reg = <0x0 0x60000000 0x0 0x1000>;
+				interrupt-parent = <&plic>;
+				interrupts = <118>;
+				dma-noncoherent;
+				clock-names = "axi", "video";
+				clocks = <&axiclk>, <&videoclk>;
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						/* Sink port */
+						reg = <0>;
+						mchp_vdma_ep_cam: endpoint {
+							remote-endpoint = <&rgbtoyuv422_out>;
+						};
+					};
+
+				};
+			};
+
+			rgbtoyuv422: generic-video-pipeline-connector@60007000 {
+				compatible = "microchip,pic64gx-generic-video-pipeline-connector",
+						"microchip,generic-video-pipeline-connector";
+				reg = <0x0 0x60007000 0x0 0x1000>;
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						microchip,video-format = <MVCF_RGB>;
+						microchip,video-width = <8>;
+						rgbtoyuv422_in: endpoint {
+							remote-endpoint = <&rgb_scaler_out>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						microchip,video-format = <MVCF_YUV_422>;
+						microchip,video-width = <8>;
+						rgbtoyuv422_out: endpoint {
+							remote-endpoint = <&mchp_vdma_ep_cam>;
+						};
+					};
+				};
+			};
+
+			rgb_scaler: rgb-scaler@60005000 {
+				compatible = "microchip,pic64gx-rgb-scaler",
+						"microchip,rgb-scaler-rtl-v1";
+				reg = <0x0 0x60005000 0x0 0x1000>;
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						rgb_scaler_in: endpoint {
+							remote-endpoint = <&image_enhancement_out>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						rgb_scaler_out: endpoint {
+							remote-endpoint = <&rgbtoyuv422_in>;
+						};
+					};
+				};
+			};
+
+			image_enhancement: image-enhancement@60004000 {
+				compatible = "microchip,pic64gx-image-enhancement",
+						"microchip,image-enhancement-rtl-v1";
+				reg = <0x0 0x60004000 0x0 0x1000>;
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						image_enhancement_in: endpoint {
+							remote-endpoint = <&white_balance_out>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						image_enhancement_out: endpoint {
+							remote-endpoint = <&rgb_scaler_in>;
+						};
+					};
+				};
+			};
+
+			white_balance: white-balance@60006000 {
+				compatible = "microchip,pic64gx-white-balance",
+						"microchip,white-balance-rtl-v1.1";
+				reg = <0x0 0x6000b000 0x0 0x1000>;
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						white_balance_in: endpoint {
+							remote-endpoint = <&mono_to_rgb_out>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						white_balance_out: endpoint {
+							remote-endpoint = <&image_enhancement_in>;
+						};
+					};
+				};
+			};
+
+			mono_to_rgb: demosaic@60008000 {
+				compatible = "microchip,pic64gx-bayer-interpolation",
+						"microchip,bayer-interpolation-rtl-v4.8";
+				reg = <0x0 0x60008000 0x0 0x1000>;
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						mono_to_rgb_in: endpoint {
+							remote-endpoint = <&csi2_out>;
+						};
+					};
+					port@1 {
+						reg = <1>;
+						mono_to_rgb_out: endpoint {
+							remote-endpoint = <&white_balance_in>;
+						};
+					};
+				};
+			};
+
+			mcsi2rx: csi2rx@6001000 {
+				compatible = "microchip,pic64gx-mipi-csi2-rx",
+						"microchip,mipi-csi2-rx-rtl-v0";
+				reg = <0x00 0x60001000 0x00 0x1000>;
+				interrupt-parent = <&plic>;
+				interrupts = <120>;
+				microchip,csi-pxl-format = <0x2b>;
+				microchip,csi-fixed-out-raw8;
+				clock-names = "axi", "video";
+				clocks = <&axiclk>, <&videoclk>;
+				status = "disabled";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@1 {
+						reg = <1>;
+						csi2_out: endpoint {
+							remote-endpoint = <&mono_to_rgb_in>;
+						};
+					};
+				};
+			};
+		};
+
 	};
 };

@@ -133,10 +133,15 @@ static inline void mchp_corespi_disable(struct mchp_corespi *spi)
 	mchp_corespi_write(spi, REG_CONTROL, control);
 }
 
-static inline void mchp_corespi_read_fifo(struct mchp_corespi *spi)
+static inline void mchp_corespi_read_fifo(struct mchp_corespi *spi, int fifo_max)
 {
-	while (spi->rx_len >= spi->n_bytes && !(mchp_corespi_read(spi, REG_STATUS) & STATUS_RXFIFO_EMPTY)) {
-		u32 data = mchp_corespi_read(spi, REG_RX_DATA);
+	 for (int i = 0; i < fifo_max; i++) {
+		u32 data;
+
+		while (mchp_corespi_read(spi, REG_STATUS) & STATUS_RXFIFO_EMPTY)
+			;
+
+		data = mchp_corespi_read(spi, REG_RX_DATA);
 
 		spi->rx_len -= spi->n_bytes;
 
@@ -211,11 +216,10 @@ static inline void mchp_corespi_set_xfer_size(struct mchp_corespi *spi, int len)
 	mchp_corespi_write(spi, REG_FRAMESUP, len);
 }
 
-static inline void mchp_corespi_write_fifo(struct mchp_corespi *spi)
+static inline void mchp_corespi_write_fifo(struct mchp_corespi *spi, int fifo_max)
 {
-	int fifo_max, i = 0;
+	int i = 0;
 
-	fifo_max = DIV_ROUND_UP(min(spi->tx_len, FIFO_DEPTH), spi->n_bytes);
 	mchp_corespi_set_xfer_size(spi, fifo_max);
 
 	while ((i < fifo_max) && !(mchp_corespi_read(spi, REG_STATUS) & STATUS_TXFIFO_FULL)) {
@@ -416,15 +420,8 @@ static irqreturn_t mchp_corespi_interrupt(int irq, void *dev_id)
 	if (intfield & INT_TXDONE)
 		mchp_corespi_write(spi, REG_INT_CLEAR, INT_TXDONE);
 
-	if (intfield & INT_RXRDY) {
+	if (intfield & INT_RXRDY)
 		mchp_corespi_write(spi, REG_INT_CLEAR, INT_RXRDY);
-
-		if (spi->rx_len)
-			mchp_corespi_read_fifo(spi);
-	}
-
-	if (!spi->rx_len && !spi->tx_len)
-		finalise = true;
 
 	if (intfield & INT_RX_CHANNEL_OVERFLOW) {
 		mchp_corespi_write(spi, REG_INT_CLEAR, INT_RX_CHANNEL_OVERFLOW);
@@ -512,9 +509,13 @@ static int mchp_corespi_transfer_one(struct spi_controller *host,
 
 	mchp_corespi_write(spi, REG_SLAVE_SELECT, spi->pending_slave_select);
 
-	while (spi->tx_len)
-		mchp_corespi_write_fifo(spi);
+	while (spi->tx_len) {
+		int fifo_max = DIV_ROUND_UP(min(spi->tx_len, FIFO_DEPTH), spi->n_bytes);
+		mchp_corespi_write_fifo(spi, fifo_max);
+		mchp_corespi_read_fifo(spi, fifo_max);
+	}
 
+	spi_finalize_current_transfer(host);
 	return 1;
 }
 

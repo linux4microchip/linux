@@ -1157,6 +1157,8 @@ err:
 static void atmel_hlcdc_plane_reset(struct drm_plane *p)
 {
 	struct atmel_hlcdc_plane_state *state;
+	struct atmel_hlcdc_dc *dc = p->dev->dev_private;
+	struct atmel_hlcdc_plane *plane = drm_plane_to_atmel_hlcdc_plane(p);
 
 	if (p->state) {
 		state = drm_plane_state_to_atmel_hlcdc_plane_state(p->state);
@@ -1178,6 +1180,9 @@ static void atmel_hlcdc_plane_reset(struct drm_plane *p)
 		}
 		__drm_atomic_helper_plane_reset(p, &state->base);
 	}
+
+	if (plane->layer.desc->layout.csc)
+		dc->desc->ops->lcdc_csc_init(plane, plane->layer.desc);
 }
 
 static struct drm_plane_state *
