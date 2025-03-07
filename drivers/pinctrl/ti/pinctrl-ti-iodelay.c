@@ -838,16 +838,6 @@ static int ti_iodelay_probe(struct platform_device *pdev)
 		goto exit_out;
 	}
 
-	match = of_match_device(ti_iodelay_of_match, dev);
-	if (!match) {
-		ret = -EINVAL;
-		dev_err(dev, "No DATA match\n");
-		goto exit_out;
-	}
-
-		return -EINVAL;
-	}
-
 	iod = devm_kzalloc(dev, sizeof(*iod), GFP_KERNEL);
 	if (!iod)
 		return -ENOMEM;
