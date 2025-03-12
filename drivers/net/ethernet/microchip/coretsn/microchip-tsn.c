@@ -50,8 +50,10 @@ static int mchp_tsn_get_qci_config(struct mchp_tsn_dev *tsn_dev,
 				   struct mchp_tsn_config_cmd_resp *tsn_conf)
 {
 	struct mchp_tsn_config_qci *tsn_qciconf;
-	u32 mac_addr_msb;
-	u16 mac_addr_lsb;
+	u32 mac_addr_mb;
+	u16 mac_addr_lb;
+	__be32 mac_addr_msb;
+	__be16 mac_addr_lsb;
 
 	tsn_qciconf = (struct mchp_tsn_config_qci *)&tsn_conf->tsn_config_data[0];
 	tsn_conf->cmd_status = 0;
@@ -61,10 +63,10 @@ static int mchp_tsn_get_qci_config(struct mchp_tsn_dev *tsn_dev,
 	dev_dbg(&tsn_dev->pdev->dev, "DA_check :%08x\n", tsn_qciconf->da_check);
 	dev_dbg(&tsn_dev->pdev->dev, "SA_check :%08x\n", tsn_qciconf->sa_check);
 
-	mac_addr_msb = mchp_tsn_get(tsn_dev, TSN_REG_DST_MAC_MSB, TSN_MASK_MAC_MSB);
-	mac_addr_lsb = mchp_tsn_get(tsn_dev, TSN_REG_DST_MAC_LSB, TSN_MASK_MAC_LSB);
-	mac_addr_msb = cpu_to_be32(mac_addr_msb);
-	mac_addr_lsb = cpu_to_be16(mac_addr_lsb);
+	mac_addr_mb = mchp_tsn_get(tsn_dev, TSN_REG_DST_MAC_MSB, TSN_MASK_MAC_MSB);
+	mac_addr_lb = mchp_tsn_get(tsn_dev, TSN_REG_DST_MAC_LSB, TSN_MASK_MAC_LSB);
+	mac_addr_msb = cpu_to_be32(mac_addr_mb);
+	mac_addr_lsb = cpu_to_be16(mac_addr_lb);
 
 	dev_dbg(&tsn_dev->pdev->dev, "dst mac_addr_msb :%08x\n", mac_addr_msb);
 	dev_dbg(&tsn_dev->pdev->dev, "dst mac_addr_lsb :%08x\n", mac_addr_lsb);
@@ -72,10 +74,10 @@ static int mchp_tsn_get_qci_config(struct mchp_tsn_dev *tsn_dev,
 	memcpy(tsn_qciconf->destination_mac_addr, &mac_addr_msb, TSN_REG_SIZE);
 	memcpy(&tsn_qciconf->destination_mac_addr[TSN_REG_SIZE], &mac_addr_lsb, sizeof(u16));
 
-	mac_addr_msb = mchp_tsn_get(tsn_dev, TSN_REG_SRC_MAC_MSB, TSN_MASK_MAC_MSB);
-	mac_addr_lsb = mchp_tsn_get(tsn_dev, TSN_REG_SRC_MAC_LSB, TSN_MASK_MAC_LSB);
-	mac_addr_msb = cpu_to_be32(mac_addr_msb);
-	mac_addr_lsb = cpu_to_be16(mac_addr_lsb);
+	mac_addr_mb = mchp_tsn_get(tsn_dev, TSN_REG_SRC_MAC_MSB, TSN_MASK_MAC_MSB);
+	mac_addr_lb = mchp_tsn_get(tsn_dev, TSN_REG_SRC_MAC_LSB, TSN_MASK_MAC_LSB);
+	mac_addr_msb = cpu_to_be32(mac_addr_mb);
+	mac_addr_lsb = cpu_to_be16(mac_addr_lb);
 
 	dev_dbg(&tsn_dev->pdev->dev, "src mac_addr_msb :%08x\n", mac_addr_msb);
 	dev_dbg(&tsn_dev->pdev->dev, "src mac_addr_lsb :%08x\n", mac_addr_lsb);
@@ -238,8 +240,8 @@ static int mchp_tsn_set_qci_config(struct mchp_tsn_dev *tsn_dev,
 				   struct mchp_tsn_config_cmd_resp *tsn_conf)
 {
 	struct mchp_tsn_config_qci *tsn_qciconf;
-	u32 mac_addr_msb;
-	u16 mac_addr_lsb;
+	__be32 mac_addr_msb;
+	__be16 mac_addr_lsb;
 
 	tsn_qciconf = (struct mchp_tsn_config_qci *)&tsn_conf->tsn_config_data[0];
 	tsn_conf->cmd_status = 0;
@@ -269,8 +271,8 @@ static int mchp_tsn_set_qci_config(struct mchp_tsn_dev *tsn_dev,
 	mchp_tsn_set(tsn_dev, TSN_REG_PSC, tsn_qciconf->sa_check, TSN_MASK_SA_CHECK);
 
 	if (tsn_qciconf->da_check) {
-		mac_addr_msb = *((u32 *)tsn_qciconf->destination_mac_addr);
-		mac_addr_lsb = *((u16 *)&tsn_qciconf->destination_mac_addr[TSN_REG_SIZE]);
+		mac_addr_msb = *((__be32 *)tsn_qciconf->destination_mac_addr);
+		mac_addr_lsb = *((__be16 *)&tsn_qciconf->destination_mac_addr[TSN_REG_SIZE]);
 		dev_dbg(&tsn_dev->pdev->dev, "qciconf dst mac addr msb : %08x\n",
 			be32_to_cpu(mac_addr_msb));
 		dev_dbg(&tsn_dev->pdev->dev, "qciconf dst mac addr lsb : %08x\n",
@@ -282,8 +284,8 @@ static int mchp_tsn_set_qci_config(struct mchp_tsn_dev *tsn_dev,
 	}
 
 	if (tsn_qciconf->sa_check) {
-		mac_addr_msb = *((u32 *)tsn_qciconf->source_mac_addr);
-		mac_addr_lsb = *((u16 *)&tsn_qciconf->source_mac_addr[TSN_REG_SIZE]);
+		mac_addr_msb = *((__be32 *)tsn_qciconf->source_mac_addr);
+		mac_addr_lsb = *((__be16 *)&tsn_qciconf->source_mac_addr[TSN_REG_SIZE]);
 		dev_dbg(&tsn_dev->pdev->dev, "qciconf src mac addr msb : %08x\n",
 			be32_to_cpu(mac_addr_msb));
 		dev_dbg(&tsn_dev->pdev->dev, "qciconf src mac addr lsb : %08x\n",
@@ -360,7 +362,7 @@ static int mchp_tsn_set_qbv_config(struct mchp_tsn_dev *tsn_dev,
 	tsn_conf->cmd_status = 0;
 
 	if (tsn_qbvconf->control_list_length > MAX_TSN_GCL_LEN) {
-		tsn_conf->cmd_status = -EINVAL;
+		tsn_conf->cmd_status = EINVAL;
 		tsn_conf->cmd_status_string_avail = 1;
 		snprintf(tsn_conf->cmd_status_string, TSN_CMD_ERR_STR_LEN,
 			 "Invalid gate control list length : %d valid values are 0 to 32\n",
@@ -527,7 +529,7 @@ static int mchp_chardev_tsn_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-long mchp_tsn_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static long mchp_tsn_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct mchp_tsn_config_cmd_resp config_cmd;
 	struct mchp_tsn_config_cmd_resp *tsn_conf = NULL;
@@ -546,7 +548,8 @@ long mchp_tsn_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 
 	pr_debug("mchp_tsn ioctl cmd : %08x\n", cmd);
 
-	copy_ret = copy_from_user((void *)&config_cmd, (void *)arg, sizeof(config_cmd));
+	copy_ret = copy_from_user((void *)&config_cmd, (const void __user *)arg,
+				  sizeof(config_cmd));
 
 	tsn_dev_id = be64_to_cpu(config_cmd.tsn_dev_id);
 	if (tsn_dev_id != tsn_dev->tsn_dev_id)
@@ -558,7 +561,7 @@ long mchp_tsn_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 	dev_dbg(&tsn_dev->pdev->dev, "tsn_conf :%p\n", tsn_conf);
 	dev_dbg(&tsn_dev->pdev->dev, "Copying from user buffer with conf size : %u\n",
 		be16_to_cpu(tsn_conf->tsn_config_size));
-	copy_ret = copy_from_user((void *)tsn_conf, (void *)arg, sizeof(config_cmd)
+	copy_ret = copy_from_user((void *)tsn_conf, (const void __user *)arg, sizeof(config_cmd)
 				  + be16_to_cpu(config_cmd.tsn_config_size));
 	dev_dbg(&tsn_dev->pdev->dev, "cmd is  %d\n", tsn_conf->cmd);
 	switch (tsn_conf->cmd) {
@@ -608,7 +611,7 @@ long mchp_tsn_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 	if (!ioctl_ret) {
 		dev_dbg(&tsn_dev->pdev->dev, "Copying to user buffer with conf size : %u\n",
 			be16_to_cpu(tsn_conf->tsn_config_size));
-		copy_ret = copy_to_user((void *)arg, tsn_conf,
+		copy_ret = copy_to_user((void __user *)arg, tsn_conf,
 					sizeof(struct mchp_tsn_config_cmd_resp)
 					+ be16_to_cpu((tsn_conf->tsn_config_size)));
 	}
@@ -635,7 +638,7 @@ static void qbv_gcl_mul_and_div_init(struct mchp_tsn_dev *tsn_dev)
 		tsn_dev->qbv_gcl_mul, tsn_dev->qbv_gcl_div);
 }
 
-const struct file_operations mchp_tsn_ops = {
+static const struct file_operations mchp_tsn_ops = {
 	.owner = THIS_MODULE,
 	.open = mchp_chardev_tsn_open,
 	.release = mchp_chardev_tsn_release,
