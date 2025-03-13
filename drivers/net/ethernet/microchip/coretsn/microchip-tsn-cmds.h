@@ -19,8 +19,8 @@
 struct mchp_tsn_config_cmd_resp {
 	u8  cmd;
 	u8  cmd_status;
-	u64 tsn_dev_id;
-	u16 tsn_config_size;
+	__be64 tsn_dev_id;
+	__be16 tsn_config_size;
 	u8  cmd_status_string_avail;
 	u8  cmd_status_string[TSN_CMD_ERR_STR_LEN];
 	u8  tsn_config_data[];
@@ -29,11 +29,11 @@ struct mchp_tsn_config_cmd_resp {
 #define MCHP_TSN_CONFIG_CMD      _IOWR('P', 1, struct mchp_tsn_config_cmd_resp)
 
 struct mchp_tsn_config_device_info {
-	u64 tsn_dev_id;
+	__be64 tsn_dev_id;
 } __packed;
 
 struct mchp_tsn_gcl_entry {
-	u32 time_interval;
+	__be32 time_interval;
 	u8  gate_state;
 } __packed;
 
@@ -44,9 +44,9 @@ struct mchp_tsn_config_qbv {
 	u8 priority_queue_enable;
 	u8 priority_queue_prios[MCHP_TSN_NUM_PRIO_QUEUES];
 	u8 control_list_length;
-	u32 cycle_time;
-	u64 basetime_sec;
-	u32 basetime_nsec;
+	__be32 cycle_time;
+	__be64 basetime_sec;
+	__be32 basetime_nsec;
 	u8 basetime_adjust;
 	struct mchp_tsn_gcl_entry gcle[];
 
@@ -54,7 +54,7 @@ struct mchp_tsn_config_qbv {
 
 struct mchp_tsn_config_qbu {
 	u8 pre_empt_en;
-	u16 pre_empt_size;
+	__be16 pre_empt_size;
 } __packed;
 
 struct mchp_tsn_config_qci {
@@ -66,7 +66,7 @@ struct mchp_tsn_config_qci {
 
 struct mchp_tsn_config_misc_rx_port_id {
 	u8 port_id_rx_check;
-	u16 port_id_rx;
+	__be16 port_id_rx;
 } __packed;
 
 struct mchp_tsn_config_misc_ptp_tx_prioq {
@@ -74,7 +74,7 @@ struct mchp_tsn_config_misc_ptp_tx_prioq {
 } __packed;
 
 struct mchp_tsn_config_misc_length_deduct_byte {
-	u16 crc_deduct_len;
+	__be16 crc_deduct_len;
 } __packed;
 
 enum MCHP_TSN_CONFIG_CMDS {

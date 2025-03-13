@@ -55,7 +55,7 @@ struct mchp_tsn_dev {
 	struct class *class;
 	dev_t dev;
 	struct mutex tsn_dev_mutex;
-	void *tsn_reg_base;
+	void __iomem *tsn_reg_base;
 	u64 tsn_dev_id;
 	u32 core_clk_rate;
 	u32 qbv_gcl_mul;
