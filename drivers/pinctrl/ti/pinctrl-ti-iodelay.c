@@ -835,7 +835,7 @@ static int ti_iodelay_probe(struct platform_device *pdev)
 
 	if (!np) {
 		dev_err(dev, "No OF node\n");
-		goto exit_out;
+		return -EINVAL;
 	}
 
 	iod = devm_kzalloc(dev, sizeof(*iod), GFP_KERNEL);
