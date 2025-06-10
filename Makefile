@@ -2,7 +2,7 @@
 VERSION = 6
 PATCHLEVEL = 6
 SUBLEVEL = 75
-EXTRAVERSION = -linux4microchip+fpga-2025.03
+EXTRAVERSION = -linux4microchip+fpga-2025.03.1
 NAME = Pinguïn Aangedreven
 
 # *DOCUMENTATION*
