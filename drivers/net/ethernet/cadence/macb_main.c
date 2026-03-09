@@ -1673,6 +1673,73 @@ static bool macb_rx_pending(struct macb_queue *queue)
 	return (desc->addr & MACB_BIT(RX_USED)) != 0;
 }
 
+static int gem_rx_poll(struct napi_struct *napi, int budget)
+{
+	struct macb_queue *queue = container_of(napi, struct macb_queue, napi_rx);
+	struct macb *bp = queue->bp;
+	int work_done;
+	u32 status;
+
+	work_done = bp->macbgem_ops.mog_rx(queue, napi, budget);
+
+	netdev_vdbg(bp->dev, "RX poll: queue = %u, work_done = %d, budget = %d\n",
+		    (unsigned int)(queue - bp->queues), work_done, budget);
+
+	/* Check for Buffer Not Available (BNA) error in Receive Status Register.
+	 * Under high load, the GEM DMA may halt. Clearing BNA without resolving
+	 * the resource shortage causes a permanent lockup. We force a slot release
+	 * and refill to allow the hardware to resume.
+	 */
+	status = macb_readl(bp, RSR);
+	if (unlikely(status & MACB_BIT(BNA))) {
+		netdev_warn(bp->dev, "RX buffer not available, freeing a slot to resume\n");
+
+		/* Transiently mask HRESP to prevent asynchronous reset tasks
+		 * from interfering with manual ring manipulation.
+		 */
+		queue_writel(queue, IDR, MACB_BIT(HRESP));
+
+		/* Force a slot release by moving the consumer index and update stats */
+		queue->rx_tail++;
+		bp->dev->stats.rx_dropped++;
+		queue->stats.rx_dropped++;
+
+		/* Clear the BNA error bit in RSR after resolving the condition */
+		macb_writel(bp, RSR, MACB_BIT(BNA));
+
+		/* Recycle the skipped slot: resets the USED bit for hardware reuse */
+		gem_rx_refill(queue);
+
+		/* Re-enable HRESP and reschedule NAPI to handle the newly freed slot */
+		queue_writel(queue, IER, MACB_BIT(HRESP));
+		napi_schedule(napi);
+	}
+
+	if (work_done < budget && napi_complete_done(napi, work_done)) {
+		queue_writel(queue, IER, bp->rx_intr_mask);
+
+		/* Packet completions only seem to propagate to raise
+		 * interrupts when interrupts are enabled at the time, so if
+		 * packets were received while interrupts were disabled,
+		 * they will not cause another interrupt to be generated when
+		 * interrupts are re-enabled.
+		 * Check for this case here to avoid losing a wakeup. This can
+		 * potentially race with the interrupt handler doing the same
+		 * actions if an interrupt is raised just after enabling them,
+		 * but this should be harmless.
+		 */
+		if (macb_rx_pending(queue)) {
+			queue_writel(queue, IDR, bp->rx_intr_mask);
+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+				queue_writel(queue, ISR, MACB_BIT(RCOMP));
+			netdev_vdbg(bp->dev, "poll: packets pending, reschedule\n");
+			napi_schedule(napi);
+		}
+	}
+
+	return work_done;
+}
+
 static int macb_rx_poll(struct napi_struct *napi, int budget)
 {
 	struct macb_queue *queue = container_of(napi, struct macb_queue, napi_rx);
@@ -4135,7 +4202,11 @@ static int macb_init(struct platform_device *pdev)
 		queue = &bp->queues[q];
 		queue->bp = bp;
 		spin_lock_init(&queue->tx_ptr_lock);
-		netif_napi_add(dev, &queue->napi_rx, macb_rx_poll);
+		if (macb_is_gem(bp)) {
+			netif_napi_add(dev, &queue->napi_rx, gem_rx_poll);
+		} else {
+			netif_napi_add(dev, &queue->napi_rx, macb_rx_poll);
+		}
 		netif_napi_add(dev, &queue->napi_tx, macb_tx_poll);
 		if (hw_q) {
 			queue->ISR  = GEM_ISR(hw_q - 1);
