@@ -89,7 +89,7 @@ static int atmel_hlcdc_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			    atmel->errata->div1_clk_erratum)
 				continue;
 
-			if ((clk_period_ns << pres) >= state->period)
+			if ((clk_period_ns << (pres + 1)) >= state->period)
 				break;
 		}
 
