@@ -189,6 +189,10 @@
 	status = "okay";
 };
 
+&crypto {
+	status = "okay";
+};
+
 &fpgadma {
 	status = "okay";
 };
