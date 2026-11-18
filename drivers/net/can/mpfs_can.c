@@ -816,6 +816,25 @@ static void mpfs_can_tx_interrupt(struct net_device *ndev)
 	mpfs_can_update_error_state(ndev);
 }
 
+/* The controller found no empty receive buffer for a frame and dropped it. */
+static void mpfs_can_rx_lost(struct net_device *ndev)
+{
+	struct net_device_stats *stats = &ndev->stats;
+	struct can_frame *cf;
+	struct sk_buff *skb;
+
+	stats->rx_over_errors++;
+	stats->rx_errors++;
+
+	skb = alloc_can_err_skb(ndev, &cf);
+	if (!skb)
+		return;
+
+	cf->can_id |= CAN_ERR_CRTL;
+	cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
+	netif_rx(skb);
+}
+
 static irqreturn_t mpfs_can_interrupt(int irq, void *dev_id)
 {
 	struct net_device *ndev = (struct net_device *)dev_id;
@@ -833,6 +852,9 @@ static irqreturn_t mpfs_can_interrupt(int irq, void *dev_id)
 
 	if (isr & MPFS_CAN_ERR_MASK)
 		mpfs_can_err_interrupt(ndev, isr);
+
+	if (isr & MPFS_CAN_ISR_RXMSG_LOS_MASK)
+		mpfs_can_rx_lost(ndev);
 
 	if (isr & MPFS_CAN_ISR_RXMSG_SNT_MASK) {
 		ier = mpfs_can_read(priv, MPFS_CAN_IER_OFFSET);
