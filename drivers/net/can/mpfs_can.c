@@ -226,6 +226,9 @@ enum mpfs_can_reg {
  * @irq_flags:			For request_irq()
  * @pclk:			Pointer to struct clk
  * @can_clk:			Pointer to struct clk
+ * @rx_held:			RX buffers read but not yet released to the controller
+ * @rx_raced:			RX buffers still to read, in order, after a release
+ * @rx_raced_start:		RX buffer the in-order read of @rx_raced starts at
  */
 struct mpfs_can_priv {
 	struct can_priv can;
@@ -240,6 +243,9 @@ struct mpfs_can_priv {
 	struct clk_bulk_data    *clks;
 	int     num_clocks;
 	const struct can_bittiming_const *bittiming_const;
+	u32 rx_held;
+	u32 rx_raced;
+	unsigned int rx_raced_start;
 };
 
 static const struct can_bittiming_const mpfs_can_bittiming_const = {
@@ -316,6 +322,9 @@ static int mpfs_can_start(struct net_device *ndev)
 	struct mpfs_can_priv *priv = netdev_priv(ndev);
 	u32 reg_msr;
 	int ret, buf;
+
+	priv->rx_held = 0;
+	priv->rx_raced = 0;
 
 	ret = mpfs_can_reset(ndev);
 	if (ret)
@@ -439,22 +448,6 @@ static int mpfs_can_get_txmsg_index(struct mpfs_can_priv *priv)
 	return -ENOBUFS;
 }
 
-static int mpfs_can_get_rxmsg_index(struct mpfs_can_priv *priv)
-{
-	int available_rxreq;
-
-	for (int buf_index = 0; buf_index < MPFS_CAN_RX_BUFFERS; buf_index++) {
-		available_rxreq = mpfs_can_read(priv, MPFS_CAN_RX_MSG_CTR_OFFSET(buf_index));
-
-		if (!(available_rxreq & MPFS_CAN_RXMSG_CTRL_CMD_AVAIL_MASK))
-			continue;
-
-		return buf_index;
-	}
-
-	return -ENOBUFS;
-}
-
 static netdev_tx_t mpfs_can_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct mpfs_can_priv *priv = netdev_priv(ndev);
@@ -484,7 +477,27 @@ static netdev_tx_t mpfs_can_start_xmit(struct sk_buff *skb, struct net_device *n
 	return NETDEV_TX_OK;
 }
 
-static int mpfs_can_rx(struct net_device *ndev, int buf_off)
+static bool mpfs_can_rx_buf_full(const struct mpfs_can_priv *priv, unsigned int buf)
+{
+	return mpfs_can_read(priv, MPFS_CAN_RX_MSG_CTR_OFFSET(buf)) &
+	       MPFS_CAN_RXMSG_CTRL_CMD_AVAIL_MASK;
+}
+
+/* Clear the message available bit, so the controller may store a new frame
+ * in this buffer.
+ */
+static void mpfs_can_rx_release(const struct mpfs_can_priv *priv, unsigned int buf)
+{
+	u32 ctrl = mpfs_can_read(priv, MPFS_CAN_RX_MSG_CTR_OFFSET(buf));
+
+	mpfs_can_write(priv, MPFS_CAN_RX_MSG_CTR_OFFSET(buf),
+		       ctrl | MPFS_CAN_RXMSG_CTRL_CMD_AVAIL_MASK);
+}
+
+/* Pass the frame in @buf up and hold the buffer: it stays full until
+ * mpfs_can_rx_free() releases it.
+ */
+static void mpfs_can_rx_hold(struct net_device *ndev, unsigned int buf)
 {
 	struct mpfs_can_priv *priv = netdev_priv(ndev);
 	struct net_device_stats *stats = &ndev->stats;
@@ -492,14 +505,16 @@ static int mpfs_can_rx(struct net_device *ndev, int buf_off)
 	struct sk_buff *skb;
 	u32 id, data[2] = {0, 0}, ctrl;
 
+	priv->rx_held |= BIT(buf);
+
 	skb = alloc_can_skb(ndev, &frame);
 	if (unlikely(!skb)) {
 		stats->rx_dropped++;
-		return 0;
+		return;
 	}
 
-	id = mpfs_can_read(priv, MPFS_CAN_RX_MSG_ID_OFFSET(buf_off));
-	ctrl = mpfs_can_read(priv, MPFS_CAN_RX_MSG_CTR_OFFSET(buf_off));
+	id = mpfs_can_read(priv, MPFS_CAN_RX_MSG_ID_OFFSET(buf));
+	ctrl = mpfs_can_read(priv, MPFS_CAN_RX_MSG_CTR_OFFSET(buf));
 
 	if (ctrl & MPFS_CAN_RXMSG_CTRL_CMD_IDE_MASK) {
 		frame->can_id = CAN_EFF_FLAG;
@@ -513,8 +528,8 @@ static int mpfs_can_rx(struct net_device *ndev, int buf_off)
 
 	frame->len = (ctrl & MPFS_CAN_DLC_MASK) >> 16;
 
-	data[0] = mpfs_can_read(priv, MPFS_CAN_RX_DATAL_OFFSET(buf_off));
-	data[1] = mpfs_can_read(priv, MPFS_CAN_RX_DATAH_OFFSET(buf_off));
+	data[0] = mpfs_can_read(priv, MPFS_CAN_RX_DATAL_OFFSET(buf));
+	data[1] = mpfs_can_read(priv, MPFS_CAN_RX_DATAH_OFFSET(buf));
 
 	if (!(frame->can_id & CAN_RTR_FLAG)) {
 		if (frame->len > 0)
@@ -523,18 +538,53 @@ static int mpfs_can_rx(struct net_device *ndev, int buf_off)
 			*(__be32 *)(frame->data + 4) = cpu_to_be32(data[1]);
 	}
 
-	/* Notify the controller that the rx message is read by setting message
-	 * available bit.
-	 */
-	ctrl = mpfs_can_read(priv, MPFS_CAN_RX_MSG_CTR_OFFSET(buf_off));
-	ctrl |= MPFS_CAN_RXMSG_CTRL_CMD_AVAIL_MASK;
-	mpfs_can_write(priv, MPFS_CAN_RX_MSG_CTR_OFFSET(buf_off), ctrl);
-
 	stats->rx_bytes += frame->len;
 	stats->rx_packets++;
 	netif_receive_skb(skb);
+}
 
-	return 1;
+/* Release every held buffer once no unread frame is left above them.
+ *
+ * The controller stores each new frame in the lowest-numbered empty buffer.
+ * While held buffers stay full, new frames therefore land in ascending buffer
+ * order, which is their arrival order. Releasing a buffer while an unread
+ * frame sits in another one would let the next frame land below that unread
+ * frame and overtake it.
+ *
+ * @next is the lowest buffer not held, or MPFS_CAN_RX_BUFFERS when all are
+ * held. Returns the buffers that filled while the held ones were released;
+ * those frames arrived before any frame stored after the release, so they are
+ * read first, starting at @next. That order holds while at most one frame
+ * arrives during the release, so it runs with interrupts off and takes far
+ * less than one CAN frame time (about 47 us at 1 Mbit/s).
+ */
+static u32 mpfs_can_rx_free(struct mpfs_can_priv *priv, unsigned int next)
+{
+	unsigned long flags;
+	unsigned int buf;
+	u32 raced = 0;
+
+	local_irq_save(flags);
+
+	if (next < MPFS_CAN_RX_BUFFERS && mpfs_can_rx_buf_full(priv, next)) {
+		local_irq_restore(flags);
+		priv->rx_raced_start = next;
+		return BIT(next);
+	}
+
+	for (buf = 0; buf < MPFS_CAN_RX_BUFFERS; buf++)
+		if (priv->rx_held & BIT(buf))
+			mpfs_can_rx_release(priv, buf);
+	priv->rx_held = 0;
+
+	for (buf = 0; buf < MPFS_CAN_RX_BUFFERS; buf++)
+		if (mpfs_can_rx_buf_full(priv, buf))
+			raced |= BIT(buf);
+
+	local_irq_restore(flags);
+
+	priv->rx_raced_start = next < MPFS_CAN_RX_BUFFERS ? next : 0;
+	return raced;
 }
 
 static enum can_state mpfs_can_current_error_state(struct net_device *ndev)
@@ -695,11 +745,39 @@ static int mpfs_can_rx_poll(struct napi_struct *napi, int quota)
 {
 	struct net_device *ndev = napi->dev;
 	struct mpfs_can_priv *priv = netdev_priv(ndev);
+	unsigned int next, buf, n;
 	u32 int_enable;
-	int processed = 0, buf_off;
+	int processed = 0;
 
-	while ((buf_off = mpfs_can_get_rxmsg_index(priv)) >= 0 && (processed < quota))
-		processed += mpfs_can_rx(ndev, buf_off);
+	while (processed < quota) {
+		if (priv->rx_raced) {
+			buf = priv->rx_raced_start;
+			for (n = 0; n < MPFS_CAN_RX_BUFFERS && !(priv->rx_raced & BIT(buf)); n++)
+				buf = (buf + 1) % MPFS_CAN_RX_BUFFERS;
+			priv->rx_raced &= ~BIT(buf);
+			priv->rx_raced_start = buf;
+			if (mpfs_can_rx_buf_full(priv, buf)) {
+				mpfs_can_rx_hold(ndev, buf);
+				processed++;
+			} else {
+				/* A restart reset the controller after the release. */
+				priv->rx_raced = 0;
+			}
+			continue;
+		}
+
+		next = priv->rx_held == GENMASK(MPFS_CAN_RX_BUFFERS - 1, 0) ?
+		       MPFS_CAN_RX_BUFFERS : ffz(priv->rx_held);
+		if (next < MPFS_CAN_RX_BUFFERS && mpfs_can_rx_buf_full(priv, next)) {
+			mpfs_can_rx_hold(ndev, next);
+			processed++;
+			continue;
+		}
+
+		priv->rx_raced = mpfs_can_rx_free(priv, next);
+		if (!priv->rx_raced)
+			break;
+	}
 
 	if (processed)
 		mpfs_can_update_error_state(ndev);
